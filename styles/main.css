@@ -1,0 +1,72 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #2a1f1a;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+}
+
+#game-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#game-container canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+#toolbar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  background: rgba(60, 40, 30, 0.95);
+  padding: 12px 20px;
+  border-radius: 16px;
+  border: 3px solid #5a4030;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  background: #4a3525;
+  border: 2px solid #6a5040;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #d4c4b0;
+}
+
+.tool-btn:hover {
+  background: #5a4535;
+  transform: translateY(-2px);
+}
+
+.tool-btn.active {
+  background: #7a6050;
+  border-color: #9a8070;
+  box-shadow: 0 0 10px rgba(255, 200, 150, 0.3);
+}
+
+.tool-icon {
+  font-size: 24px;
+}
+
+.tool-label {
+  font-size: 11px;
+  font-weight: bold;
+}

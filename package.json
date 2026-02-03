@@ -1,0 +1,17 @@
+{
+  "name": "pixel-cat-cafe",
+  "version": "1.0.0",
+  "description": "Pixel art cat cafe healing game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "pixi.js": "^8.0.0"
+  }
+}
