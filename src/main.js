@@ -6,8 +6,8 @@ async function init() {
   const app = new Application()
 
   await app.init({
-    width: 800,
-    height: 600,
+    width: 1200,
+    height: 800,
     backgroundColor: 0x8B7355,
     resolution: window.devicePixelRatio || 1,
     autoDensity: true
