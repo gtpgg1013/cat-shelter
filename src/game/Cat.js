@@ -575,14 +575,122 @@ export class Cat {
       }
     }
 
-    // Toy chasing (playful cats more interested)
-    if (this.game.currentTool === 'toy' && this.game.toy.visible && this.state !== 'zoomies') {
-      const toyDist = Math.hypot(this.game.toy.x - this.x, this.game.toy.y - this.y)
-      const chaseRange = 200 + p.playfulness * 100
-      if (toyDist < chaseRange && toyDist > 40) {
+    // Toy chasing - each toy type has different behavior
+    const toyTypes = ['feather', 'laser', 'yarn', 'fishToy', 'mouse']
+    const isToyActive = toyTypes.includes(this.game.currentTool) && this.game.toy.visible
+
+    if (isToyActive && this.state !== 'zoomies' && this.state !== 'sleeping') {
+      const toy = this.game.toy
+      const chars = toy.getCharacteristics()
+      const toyDist = Math.hypot(toy.x - this.x, toy.y - this.y)
+      const chaseRange = chars.attractRange + p.playfulness * 50
+
+      if (toyDist < chaseRange) {
+        // Play style affects behavior
+        switch (chars.playStyle) {
+          case 'chase':
+            // Direct chase
+            if (toyDist > 30) {
+              this.state = 'playing'
+              this.playStyle = 'chase'
+              this.targetX = toy.x
+              this.targetY = toy.y
+            } else if (chars.catchable && Math.random() < 0.02) {
+              // Caught it!
+              this.game.createTextEffect(this.x, this.y - 30, '잡았다!', 0x4CAF50)
+              this.game.createEffect(this.x, this.y, 'star')
+              this.happiness = Math.min(100, this.happiness + 10)
+            } else if (!chars.catchable && toyDist < 20) {
+              // Laser frustration
+              if (Math.random() < 0.01) {
+                this.game.createTextEffect(this.x, this.y - 30, '어딨냥?!', 0xFF6347)
+              }
+            }
+            break
+
+          case 'pounce':
+            // Wait then pounce
+            if (toyDist > 80) {
+              this.state = 'playing'
+              this.playStyle = 'stalk'
+              // Move closer slowly
+              this.targetX = this.x + (toy.x - this.x) * 0.3
+              this.targetY = this.y + (toy.y - this.y) * 0.3
+            } else if (toyDist > 30) {
+              // Wiggle butt then pounce!
+              if (!this.pounceTimer) {
+                this.pounceTimer = 30
+                this.state = 'crouching'
+              }
+            }
+            break
+
+          case 'bat':
+            // Gentle batting at yarn
+            if (toyDist < 60 && toyDist > 20) {
+              this.state = 'playing'
+              this.playStyle = 'bat'
+              // Stay near, bat occasionally
+              if (Math.random() < 0.03) {
+                this.game.createEffect(this.x, this.y, 'star')
+                this.game.createTextEffect(this.x, this.y - 30, '통통~', 0xFF6B6B)
+              }
+            } else if (toyDist >= 60) {
+              this.state = 'playing'
+              this.targetX = toy.x
+              this.targetY = toy.y
+            }
+            break
+
+          case 'stalk':
+            // Stealthy approach for mouse
+            if (toyDist > 100) {
+              this.state = 'playing'
+              this.playStyle = 'stalk'
+              // Slow, deliberate movement
+              this.targetX = this.x + (toy.x - this.x) * 0.2
+              this.targetY = this.y + (toy.y - this.y) * 0.2
+            } else if (toyDist > 40) {
+              // Crouch and wait
+              this.state = 'crouching'
+              if (Math.random() < 0.02) {
+                // Sudden pounce!
+                this.state = 'playing'
+                this.playStyle = 'chase'
+                this.targetX = toy.x
+                this.targetY = toy.y
+                this.game.createTextEffect(this.x, this.y - 30, '냥!', 0x9E9E9E)
+              }
+            } else if (chars.catchable && Math.random() < 0.03) {
+              this.game.createTextEffect(this.x, this.y - 30, '사냥 성공!', 0x4CAF50)
+              this.game.createEffect(this.x, this.y, 'heart')
+              this.happiness = Math.min(100, this.happiness + 15)
+            }
+            break
+        }
+
+        // Tire based on toy
+        this.tiredness = (this.tiredness || 0) + chars.tireRate * 0.01
+        if (this.tiredness > 1 && Math.random() < 0.01) {
+          this.state = 'idle'
+          this.tiredness = 0
+          this.game.createTextEffect(this.x, this.y - 30, '지쳤다냥...', 0x9090FF)
+        }
+      }
+    } else {
+      this.tiredness = Math.max(0, (this.tiredness || 0) - 0.005)
+    }
+
+    // Pounce timer
+    if (this.pounceTimer) {
+      this.pounceTimer--
+      if (this.pounceTimer <= 0) {
+        this.pounceTimer = null
         this.state = 'playing'
+        this.playStyle = 'chase'
         this.targetX = this.game.toy.x
         this.targetY = this.game.toy.y
+        this.game.createTextEffect(this.x, this.y - 30, '냥냥!', 0x4ECDC4)
       }
     }
 
@@ -600,14 +708,28 @@ export class Cat {
     }
 
     // State machine
-    if (this.state === 'walking' || this.state === 'playing') {
-      if (this.targetX !== null) {
+    if (this.state === 'walking' || this.state === 'playing' || this.state === 'crouching') {
+      if (this.state === 'crouching') {
+        // Stay still, wiggle butt
+        this.vx = 0
+        this.vy = 0
+      } else if (this.targetX !== null) {
         const dx = this.targetX - this.x
         const dy = this.targetY - this.y
         const dist = Math.hypot(dx, dy)
 
         if (dist > 8) {
-          const baseSpeed = this.state === 'playing' ? 3 : 1.5
+          let baseSpeed = this.state === 'playing' ? 3 : 1.5
+
+          // Adjust speed based on toy and play style
+          if (this.state === 'playing' && this.game.toy.visible) {
+            const chars = this.game.toy.getCharacteristics()
+            baseSpeed *= chars.chaseSpeed
+
+            // Stalk is slower
+            if (this.playStyle === 'stalk') baseSpeed *= 0.5
+          }
+
           const speed = baseSpeed * (0.8 + p.energy * 0.4)
           this.vx = (dx / dist) * speed
           this.vy = (dy / dist) * speed
@@ -692,6 +814,11 @@ export class Cat {
     if (this.state === 'zoomies') {
       this.container.y += Math.sin(Date.now() / 40) * 4
     }
+    if (this.state === 'crouching') {
+      // Wiggle butt before pounce
+      this.container.scale.y = scale * 0.8
+      this.container.x += Math.sin(Date.now() / 50) * 1.5
+    }
     if (this.state === 'idle' || this.state === 'sitting') {
       this.container.scale.y = scale * (1 + Math.sin(Date.now() / 500) * 0.02)
     }
@@ -750,18 +877,19 @@ export class Cat {
 
   finishEating() {
     if (this.targetTreat) {
+      // 간식 종류에 따른 효과 적용
+      this.targetTreat.onEaten(this)
       this.game.removeTreat(this.targetTreat)
       this.targetTreat = null
     }
     this.isEating = false
     this.statusText.visible = false
     this.state = 'idle'
-    this.happiness = Math.min(100, this.happiness + 15)
     this.leaveFurniture()
     this.scheduleNextAction()
 
     this.game.createEffect(this.x, this.y, 'heart')
-    this.game.createTextEffect(this.x, this.y - 20, 'Yummy!', 0xFF6B9D)
+    this.game.createTextEffect(this.x, this.y - 20, '맛있다냥~', 0xFF6B9D)
   }
 
   // Age system

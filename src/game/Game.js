@@ -334,7 +334,9 @@ export class Game {
     const sleeping = this.cats.filter(c => c.state === 'sleeping').length
     const playing = this.cats.filter(c => c.state === 'playing').length
     const zoomies = this.cats.filter(c => c.state === 'zoomies').length
-    this.catCountText.text = `고양이 ${this.cats.length}마리 | 자는중 ${sleeping} | 노는중 ${playing}${zoomies > 0 ? ` | 폭주! ${zoomies}` : ''}`
+    let text = `고양이 ${this.cats.length}마리 | 자는중 ${sleeping} | 노는중 ${playing}`
+    if (zoomies > 0) text += ` | 폭주! ${zoomies}`
+    this.catCountText.text = text
   }
 
   setupInteractions() {
@@ -342,15 +344,28 @@ export class Game {
     stage.eventMode = 'static'
     stage.hitArea = this.app.screen
 
+    const toyTypes = ['feather', 'laser', 'yarn', 'fishToy', 'mouse']
+
     stage.on('pointermove', (e) => {
-      if (this.currentTool === 'toy') {
+      if (toyTypes.includes(this.currentTool)) {
         this.toy.moveTo(e.global.x, e.global.y)
       }
     })
 
+    const treatTypes = ['fish', 'churu', 'dry', 'catnip']
+
     stage.on('pointerdown', (e) => {
-      if (this.currentTool === 'treat') {
-        this.placeTreat(e.global.x, e.global.y)
+      if (treatTypes.includes(this.currentTool)) {
+        this.placeTreat(e.global.x, e.global.y, this.currentTool)
+      } else if (toyTypes.includes(this.currentTool)) {
+        // Handle toy-specific interactions
+        this.toy.onPointerDown(e.global.x, e.global.y)
+      }
+    })
+
+    stage.on('pointerup', (e) => {
+      if (toyTypes.includes(this.currentTool)) {
+        this.toy.onPointerUp(e.global.x, e.global.y)
       }
     })
   }
@@ -374,26 +389,40 @@ export class Game {
     return cat
   }
 
-  placeTreat(x, y) {
+  placeTreat(x, y, type = 'fish') {
     // Only place treats on the floor area
     if (y < 300) return
 
-    const treat = new Treat(this, x, y)
+    const treat = new Treat(this, x, y, type)
     this.treats.push(treat)
     this.catLayer.addChild(treat.container)
 
-    // Attract nearest cat
-    let nearestCat = null
-    let nearestDist = Infinity
-    for (const cat of this.cats) {
-      const dist = Math.hypot(cat.x - x, cat.y - y)
-      if (dist < nearestDist && !cat.isEating) {
-        nearestDist = dist
-        nearestCat = cat
+    const traits = treat.getTraits()
+
+    // 츄르는 모든 고양이가 반응!
+    if (type === 'churu') {
+      this.createTextEffect(x, y - 30, '츄르다!', 0xFF69B4)
+      // 범위 내 모든 고양이가 달려옴
+      for (const cat of this.cats) {
+        const dist = Math.hypot(cat.x - x, cat.y - y)
+        if (dist < traits.attractRange && !cat.isEating && cat.state !== 'sleeping') {
+          cat.goToTreat(treat)
+        }
       }
-    }
-    if (nearestCat) {
-      nearestCat.goToTreat(treat)
+    } else {
+      // 다른 간식은 가장 가까운 고양이만
+      let nearestCat = null
+      let nearestDist = Infinity
+      for (const cat of this.cats) {
+        const dist = Math.hypot(cat.x - x, cat.y - y)
+        if (dist < traits.attractRange && dist < nearestDist && !cat.isEating) {
+          nearestDist = dist
+          nearestCat = cat
+        }
+      }
+      if (nearestCat) {
+        nearestCat.goToTreat(treat)
+      }
     }
   }
 
@@ -407,10 +436,44 @@ export class Game {
 
   setTool(tool) {
     this.currentTool = tool
-    this.toy.setVisible(tool === 'toy')
 
-    // Update cursor
-    document.body.style.cursor = tool === 'pet' ? 'grab' : 'default'
+    // Check if it's a toy type
+    const toyTypes = ['feather', 'laser', 'yarn', 'fishToy', 'mouse']
+    const treatTypes = ['fish', 'churu', 'dry', 'catnip']
+    const isToy = toyTypes.includes(tool)
+    const isTreat = treatTypes.includes(tool)
+
+    if (isToy) {
+      this.toy.setType(tool)
+      this.toy.setVisible(true)
+
+      // Set initial position for throw/fling/place toys
+      const interactionType = this.toy.getInteractionType()
+      if (interactionType === 'throw' || interactionType === 'fling') {
+        this.toy.x = 600
+        this.toy.y = 600
+      }
+    } else {
+      this.toy.setVisible(false)
+    }
+
+    // Update cursor based on tool type
+    if (tool === 'pet') {
+      document.body.style.cursor = 'grab'
+    } else if (isTreat) {
+      document.body.style.cursor = 'cell'  // 간식 놓기 커서
+    } else if (isToy) {
+      const interactionType = this.toy.getInteractionType()
+      if (interactionType === 'throw' || interactionType === 'place') {
+        document.body.style.cursor = 'crosshair'
+      } else if (interactionType === 'fling') {
+        document.body.style.cursor = 'move'
+      } else {
+        document.body.style.cursor = 'default'
+      }
+    } else {
+      document.body.style.cursor = 'default'
+    }
   }
 
   createHeartEffect(x, y) {
