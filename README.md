@@ -84,13 +84,28 @@ npm run dev
 | 물고기 | 드래그 후 놓기 | 날리기 |
 | 쥐돌이 | 클릭해서 배치 | 자동 도망 |
 
+### 로그인 & 저장 (v4)
+- **Clerk 로그인**: Google, GitHub 등 소셜 로그인
+- **클라우드 저장**: 로그인 시 자동으로 진행 상황 저장
+- **이어하기**: 다른 기기에서도 같은 고양이들과 계속 플레이
+- **자동 저장**: 5분마다 + 중요 이벤트 시 자동 저장
+- **비로그인 플레이**: 로그인 없이도 플레이 가능 (저장만 안 됨)
+
 ## 기술 스택
 
 - **렌더링**: Pixi.js v8
 - **번들러**: Vite
+- **인증**: Clerk
 - **스타일**: 순수 픽셀아트 (Graphics API)
 
 ## 버전 히스토리
+
+### v4 - Cloud Save
+- Clerk 로그인 연동 (Google, GitHub 소셜 로그인)
+- 클라우드 저장/불러오기
+- 자동 저장 (5분 주기)
+- 이어하기/새로 시작 선택 화면
+- 저장 상태 UI 표시
 
 ### v3.1 - Toy & Treat Variety
 - 4종 간식 시스템 (생선, 츄르, 건조간식, 캣닢)
@@ -121,17 +136,21 @@ npm run dev
 
 ```
 src/
-├── main.js          # 엔트리포인트
+├── main.js              # 엔트리포인트
+├── auth/
+│   └── clerk.js         # Clerk 인증 관리
 ├── game/
-│   ├── Game.js      # 메인 게임 클래스
-│   ├── Cat.js       # 고양이 클래스
-│   ├── CatGenerator.js   # 절차적 고양이 생성
-│   ├── TimeSystem.js     # 시간 시스템
-│   ├── SocialSystem.js   # 사회 시스템
-│   ├── EventSystem.js    # 이벤트 시스템
-│   ├── Treat.js     # 간식
-│   └── Toy.js       # 장난감
-└── style.css
+│   ├── Game.js          # 메인 게임 클래스
+│   ├── Cat.js           # 고양이 클래스
+│   ├── CatGenerator.js  # 절차적 고양이 생성
+│   ├── TimeSystem.js    # 시간 시스템
+│   ├── SocialSystem.js  # 사회 시스템
+│   ├── EventSystem.js   # 이벤트 시스템
+│   ├── SaveSystem.js    # 저장/불러오기
+│   ├── Treat.js         # 간식
+│   └── Toy.js           # 장난감
+└── styles/
+    └── main.css
 ```
 
 ## 라이선스

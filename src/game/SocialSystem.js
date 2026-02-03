@@ -194,4 +194,37 @@ export class SocialSystem {
     const affinity = this.getAffinity(avoiderId, targetId)
     return affinity < -20 && Math.random() < 0.5
   }
+
+  // === SERIALIZATION ===
+
+  toJSON() {
+    // Only save affinity values, not timestamps
+    const simplified = {}
+    for (const catId of Object.keys(this.relationships)) {
+      simplified[catId] = {}
+      for (const otherId of Object.keys(this.relationships[catId])) {
+        simplified[catId][otherId] = {
+          affinity: this.relationships[catId][otherId].affinity
+        }
+      }
+    }
+    return simplified
+  }
+
+  fromJSON(data) {
+    if (!data) return
+
+    for (const catId of Object.keys(data)) {
+      if (!this.relationships[catId]) {
+        this.relationships[catId] = {}
+      }
+      for (const otherId of Object.keys(data[catId])) {
+        this.relationships[catId][otherId] = {
+          affinity: data[catId][otherId].affinity || 0,
+          lastInteraction: Date.now(),
+          interactions: 0
+        }
+      }
+    }
+  }
 }

@@ -6,6 +6,7 @@ import { TimeSystem } from './TimeSystem.js'
 import { SocialSystem } from './SocialSystem.js'
 import { EventSystem } from './EventSystem.js'
 import { CatGenerator } from './CatGenerator.js'
+import { SaveSystem } from './SaveSystem.js'
 
 export class Game {
   constructor(app) {
@@ -21,6 +22,9 @@ export class Game {
     this.timeSystem = new TimeSystem(this)
     this.socialSystem = new SocialSystem(this)
     this.eventSystem = new EventSystem(this)
+
+    // V4 Save System
+    this.saveSystem = new SaveSystem(this)
   }
 
   async init() {
@@ -386,7 +390,24 @@ export class Game {
     }
 
     console.log(`Spawned: ${cat.genetics.name} (${cat.genetics.rarity} ${cat.genetics.patternType} ${cat.genetics.baseColorType})`)
+
+    // Mark save as dirty
+    if (this.saveSystem) {
+      this.saveSystem.markDirty()
+    }
+
     return cat
+  }
+
+  // Create cat from saved data
+  createCatFromData(catData) {
+    try {
+      const cat = Cat.fromJSON(this, catData)
+      return cat
+    } catch (error) {
+      console.error('Failed to create cat from data:', error)
+      return null
+    }
   }
 
   placeTreat(x, y, type = 'fish') {

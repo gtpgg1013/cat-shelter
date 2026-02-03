@@ -907,4 +907,28 @@ export class Cat {
       this.drawCat() // Redraw with gray whiskers
     }
   }
+
+  // === SERIALIZATION ===
+
+  toJSON() {
+    return {
+      id: this.id,
+      genetics: this.genetics,
+      x: this.x,
+      y: this.y,
+      happiness: this.happiness,
+      age: this.age
+    }
+  }
+
+  static fromJSON(game, data) {
+    const cat = new Cat(game, data.genetics)
+    cat.id = data.id
+    cat.x = data.x
+    cat.y = data.y
+    cat.happiness = data.happiness || 50
+    cat.age = data.age || { days: 0, stage: 'young' }
+    cat.drawCat() // Redraw with correct appearance
+    return cat
+  }
 }

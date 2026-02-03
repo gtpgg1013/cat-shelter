@@ -76,3 +76,163 @@ body {
   background: #5a4030;
   margin: 0 5px;
 }
+
+/* Header */
+#header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: rgba(60, 40, 30, 0.95);
+  border-bottom: 3px solid #5a4030;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #f4e4d0;
+}
+
+#save-status {
+  font-size: 12px;
+  color: #9a8a7a;
+}
+
+#save-status.saving {
+  color: #f4c542;
+}
+
+#save-status.saved {
+  color: #4ecdc4;
+}
+
+#save-status.error {
+  color: #ff6b6b;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-btn {
+  padding: 8px 16px;
+  background: #4a3525;
+  border: 2px solid #6a5040;
+  border-radius: 8px;
+  color: #d4c4b0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.header-btn:hover {
+  background: #5a4535;
+}
+
+.header-btn-small {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid #6a5040;
+  border-radius: 6px;
+  color: #a49080;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.header-btn-small:hover {
+  background: #3a2515;
+}
+
+#user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#user-name {
+  color: #f4e4d0;
+  font-size: 13px;
+}
+
+/* Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 200;
+}
+
+.modal-content {
+  background: #3a2a20;
+  border: 3px solid #5a4030;
+  border-radius: 16px;
+  padding: 30px 40px;
+  text-align: center;
+  max-width: 400px;
+}
+
+.modal-content h2 {
+  color: #f4e4d0;
+  font-size: 20px;
+  margin-bottom: 15px;
+}
+
+.modal-content p {
+  color: #a49080;
+  font-size: 14px;
+  margin-bottom: 25px;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.modal-btn {
+  padding: 12px 24px;
+  background: #4a3525;
+  border: 2px solid #6a5040;
+  border-radius: 10px;
+  color: #d4c4b0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.modal-btn:hover {
+  background: #5a4535;
+  transform: translateY(-2px);
+}
+
+.modal-btn.primary {
+  background: #6a8a60;
+  border-color: #8aaa80;
+}
+
+.modal-btn.primary:hover {
+  background: #7a9a70;
+}

@@ -7,7 +7,31 @@
   <link rel="stylesheet" href="/styles/main.css">
 </head>
 <body>
+  <div id="header">
+    <div class="header-left">
+      <span class="header-title">고양이 쉼터</span>
+      <span id="save-status"></span>
+    </div>
+    <div class="header-right">
+      <button id="save-btn" class="header-btn" style="display: none;">저장</button>
+      <button id="login-btn" class="header-btn">로그인</button>
+      <div id="user-info" style="display: none;">
+        <span id="user-name"></span>
+        <button id="logout-btn" class="header-btn-small">로그아웃</button>
+      </div>
+    </div>
+  </div>
   <div id="game-container"></div>
+  <div id="load-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h2>저장된 쉼터가 있어요!</h2>
+      <p id="save-info"></p>
+      <div class="modal-buttons">
+        <button id="continue-btn" class="modal-btn primary">이어하기</button>
+        <button id="new-btn" class="modal-btn">새로 시작</button>
+      </div>
+    </div>
+  </div>
   <div id="toolbar">
     <button class="tool-btn active" data-tool="pet">
       <span class="tool-icon">🖐️</span>
