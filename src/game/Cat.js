@@ -1,35 +1,47 @@
 import { Container, Graphics, Text } from 'pixi.js'
+import { CatGenerator } from './CatGenerator.js'
 
 export class Cat {
-  constructor(game, type = 'orange') {
+  constructor(game, genetics = null) {
     this.game = game
-    this.type = type
+    this.genetics = genetics || CatGenerator.generate()
+    this.id = this.genetics.id
+
     this.container = new Container()
     this.container.eventMode = 'static'
     this.container.cursor = 'pointer'
 
+    // Position
     this.x = 400
     this.y = 500
     this.vx = 0
     this.vy = 0
     this.direction = 1
-    this.scale = 1.8
+    this.baseScale = 0.9 + this.genetics.bodySize * 0.3
 
+    // State
     this.state = 'idle'
     this.stateTimer = 0
     this.targetX = null
     this.targetY = null
     this.targetTreat = null
     this.targetFurniture = null
+    this.targetCat = null // For social behaviors
     this.isEating = false
     this.isPetted = false
     this.pettedTimer = 0
     this.currentPetZone = null
     this.happiness = 50
-    this.onFurniture = null // Which furniture cat is using
+    this.onFurniture = null
+    this.zoomieTimer = 0
 
-    this.colors = this.getColors()
-    this.createStatusText() // Create status text ONCE, separate from sprite
+    // Age system
+    this.age = {
+      days: 0,
+      stage: 'young', // kitten, young, adult, senior
+    }
+
+    this.createStatusText()
     this.drawCat()
     this.setupHitZones()
     this.setupEvents()
@@ -37,12 +49,11 @@ export class Cat {
   }
 
   createStatusText() {
-    // Status text - added to game's effect layer so it doesn't flip!
     this.statusText = new Text({
       text: '',
       style: {
         fontFamily: 'Courier New',
-        fontSize: 16,
+        fontSize: 14,
         fill: 0xFF6B9D,
         fontWeight: 'bold',
         stroke: { color: 0xFFFFFF, width: 3 }
@@ -50,43 +61,57 @@ export class Cat {
     })
     this.statusText.anchor.set(0.5)
     this.statusText.visible = false
-    this.game.effectLayer.addChild(this.statusText) // Add to effectLayer, not container!
+    this.game.effectLayer.addChild(this.statusText)
+
+    // Name tag (always visible, readable)
+    this.nameTag = new Text({
+      text: this.genetics.name,
+      style: {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: 12,
+        fill: 0x4A4A4A,
+        fontWeight: 'bold',
+        stroke: { color: 0xFFFFFF, width: 4 }
+      }
+    })
+    this.nameTag.anchor.set(0.5)
+    this.game.effectLayer.addChild(this.nameTag)
   }
 
-  getColors() {
-    // Karpathy-style: minimal but expressive color palettes
-    const palettes = {
-      // Classic cats
-      orange: { body: 0xF4A460, dark: 0xD2691E, light: 0xFFDAAB, nose: 0xFFB6C1, eyes: 0x2E8B57 },
-      tuxedo: { body: 0x2D2D2D, dark: 0x1A1A1A, light: 0xFFFFFF, nose: 0xFFB6C1, eyes: 0xFFD700 },
-      calico: { body: 0xFFFAF0, dark: 0xF4A460, spots: 0x2D2D2D, nose: 0xFFB6C1, eyes: 0x6B8E23 },
-      tabby: { body: 0x8B7355, dark: 0x5D4E37, light: 0xC4A67C, nose: 0xFFB6C1, eyes: 0xDAA520 },
-      white: { body: 0xFFFFF0, dark: 0xF0EAD6, light: 0xFFFFFF, nose: 0xFFB6C1, eyes: 0x87CEEB },
-      black: { body: 0x1A1A1A, dark: 0x0D0D0D, light: 0x333333, nose: 0x4A4A4A, eyes: 0xFFD700 },
-      gray: { body: 0x808080, dark: 0x5A5A5A, light: 0xA9A9A9, nose: 0xFFB6C1, eyes: 0x98FB98 },
-      // Fancy cats
-      siamese: { body: 0xFAF0E6, dark: 0x8B7355, light: 0xFFFFF0, nose: 0xDDA0DD, eyes: 0x4169E1 },
-      russian: { body: 0x708090, dark: 0x4A5568, light: 0x94A3B8, nose: 0x9090A0, eyes: 0x90EE90 },
-      cream: { body: 0xFFE4C4, dark: 0xDEB887, light: 0xFFF8DC, nose: 0xFFB6C1, eyes: 0x20B2AA },
-      ginger: { body: 0xFF8C00, dark: 0xCC5500, light: 0xFFB347, nose: 0xFFB6C1, eyes: 0x228B22 },
-      // Special cats
-      void: { body: 0x0D0D0D, dark: 0x000000, light: 0x1A1A1A, nose: 0x2D2D2D, eyes: 0xFF6347 },
-      cloud: { body: 0xF8F8FF, dark: 0xE8E8F0, light: 0xFFFFFF, nose: 0xFFC0CB, eyes: 0xDDA0DD },
-      peach: { body: 0xFFDAB9, dark: 0xF4A460, light: 0xFFE4E1, nose: 0xFF69B4, eyes: 0x66CDAA },
-      silver: { body: 0xC0C0C0, dark: 0x909090, light: 0xE8E8E8, nose: 0xFFB6C1, eyes: 0x4682B4 },
+  getRarityColor() {
+    const colors = {
+      common: 0x808080,
+      uncommon: 0x4CAF50,
+      rare: 0x2196F3,
+      legendary: 0xFFD700,
     }
-    return palettes[this.type] || palettes.orange
+    return colors[this.genetics.rarity] || 0x808080
   }
 
   drawCat() {
+    if (this.sprite) {
+      this.container.removeChild(this.sprite)
+      this.sprite.destroy()
+    }
+
     this.sprite = new Graphics()
-    const s = 4 // Pixel size - clean grid
-    const c = this.colors
+    const s = 4 // Pixel size
+    const g = this.genetics
 
-    // === KARPATHY STYLE: Simple, round, expressive ===
+    // Convert HSL colors to hex
+    const bodyColor = CatGenerator.hslToHex(g.baseColor)
+    const patternColor = g.patternColor ? CatGenerator.hslToHex(g.patternColor) : bodyColor
+    const eyeColor = CatGenerator.hslToHex(g.eyeColor)
 
-    // Body - round and chonky
-    this.sprite.fill(c.body)
+    // Lighter belly
+    const bellyColor = CatGenerator.hslToHex({
+      h: g.baseColor.h,
+      s: g.baseColor.s * 0.7,
+      l: Math.min(95, g.baseColor.l * 1.2)
+    })
+
+    // === BODY ===
+    this.sprite.fill(bodyColor)
     const body = [
       [0,0,0,1,1,1,1,0,0,0],
       [0,0,1,1,1,1,1,1,0,0],
@@ -101,12 +126,13 @@ export class Cat {
       })
     })
 
-    // Belly highlight
-    this.sprite.fill(c.light)
+    // Belly
+    this.sprite.fill(bellyColor)
     this.sprite.rect(4 * s, 8 * s, s * 2, s * 2)
 
-    // Head - big and round (the key to cuteness!)
-    this.sprite.fill(c.body)
+    // === HEAD ===
+    this.sprite.fill(bodyColor)
+    const earSize = g.earSize
     const head = [
       [0,0,1,0,0,0,0,1,0,0],
       [0,1,1,1,1,1,1,1,1,0],
@@ -121,116 +147,140 @@ export class Cat {
       })
     })
 
-    // Ears - pointy triangles
-    this.sprite.fill(c.body)
-    this.sprite.rect(2 * s, 0, s, s)
-    this.sprite.rect(7 * s, 0, s, s)
+    // Ears
+    if (earSize > 0.95) {
+      this.sprite.rect(1 * s, 0, s, s)
+      this.sprite.rect(8 * s, 0, s, s)
+    }
 
-    // Inner ears - pink!
+    // Inner ears (pink)
     this.sprite.fill(0xFFB6C1)
     this.sprite.rect(2 * s, 1 * s, s * 0.6, s * 0.6)
     this.sprite.rect(7 * s, 1 * s, s * 0.6, s * 0.6)
 
-    // === THE EYES - Cute simple dot eyes! ===
-    // Simple black dots - classic cute style
+    // === PATTERN ===
+    this.drawPattern(s, bodyColor, patternColor)
+
+    // === EYES ===
+    const eyeS = s * g.eyeSize
     this.sprite.fill(0x000000)
-    this.sprite.rect(3 * s, 3 * s, s, s)
-    this.sprite.rect(6 * s, 3 * s, s, s)
+    this.sprite.rect(3 * s, 3 * s, eyeS, eyeS)
+    this.sprite.rect(6 * s, 3 * s, eyeS, eyeS)
 
-    // Tiny white shine - one pixel each
+    // Eye shine
     this.sprite.fill(0xFFFFFF)
-    this.sprite.rect(3 * s, 3 * s, s * 0.4, s * 0.4)
+    this.sprite.rect(3 * s, 3 * s, eyeS * 0.4, eyeS * 0.4)
 
-    // Nose - tiny triangle/heart shape
-    this.sprite.fill(c.nose)
+    // === NOSE & MOUTH ===
+    this.sprite.fill(0xFFB6C1)
     this.sprite.rect(4.7 * s, 4.2 * s, s * 0.6, s * 0.4)
 
-    // Mouth - simple cute :3
-    this.sprite.fill(c.dark)
+    this.sprite.fill(0x404040)
     this.sprite.rect(4.3 * s, 4.7 * s, s * 0.3, s * 0.3)
     this.sprite.rect(5.4 * s, 4.7 * s, s * 0.3, s * 0.3)
 
-    // Blush marks (optional cute touch)
+    // === TAIL ===
+    const tailLen = Math.floor(g.tailLength * 4)
+    this.sprite.fill(bodyColor)
+    for (let i = 0; i < tailLen; i++) {
+      this.sprite.rect((9 + i) * s, (10 - i * 0.7) * s, s, s)
+    }
+
+    // === PAWS ===
+    this.sprite.fill(bodyColor)
+    this.sprite.rect(2 * s, 11 * s, s * 2, s)
+    this.sprite.rect(6 * s, 11 * s, s * 2, s)
+
+    // Paw pads
+    this.sprite.fill(0xFFB6C1)
+    this.sprite.rect(2.3 * s, 11.3 * s, s * 0.4, s * 0.4)
+    this.sprite.rect(6.3 * s, 11.3 * s, s * 0.4, s * 0.4)
+
+    // === FLUFFINESS ===
+    if (g.fluffiness > 0.7) {
+      // Extra fluffy - add tufts
+      this.sprite.fill(bodyColor)
+      this.sprite.rect(0 * s, 3 * s, s * 0.5, s)
+      this.sprite.rect(9.5 * s, 3 * s, s * 0.5, s)
+      // Fluffy chest
+      this.sprite.rect(4 * s, 5.5 * s, s * 2, s * 0.5)
+    }
+
+    // Blush when happy
     if (this.happiness > 70) {
       this.sprite.fill(0xFFB6C1)
       this.sprite.circle(2.5 * s, 4 * s, s * 0.4)
       this.sprite.circle(7.5 * s, 4 * s, s * 0.4)
     }
 
-    // Markings based on type
-    this.drawMarkings(s, c)
+    // Age appearance
+    this.applyAgeAppearance(s)
 
-    // Tail - curved and fluffy
-    this.sprite.fill(c.body)
-    this.sprite.rect(9 * s, 9 * s, s, s)
-    this.sprite.rect(10 * s, 8 * s, s, s)
-    this.sprite.rect(10 * s, 7 * s, s, s)
-    if (c.dark !== c.body) {
-      this.sprite.fill(c.dark)
-      this.sprite.rect(10 * s, 6 * s, s, s)
+    // Rarity sparkle for legendary
+    if (g.rarity === 'legendary' && Math.random() < 0.3) {
+      this.sprite.fill(0xFFD700)
+      this.sprite.rect(Math.random() * 8 * s, Math.random() * 10 * s, s * 0.3, s * 0.3)
     }
 
-    // Paws - little beans!
-    this.sprite.fill(c.body)
-    this.sprite.rect(2 * s, 11 * s, s * 2, s)
-    this.sprite.rect(6 * s, 11 * s, s * 2, s)
-    // Paw pads
-    this.sprite.fill(c.nose)
-    this.sprite.rect(2.3 * s, 11.3 * s, s * 0.4, s * 0.4)
-    this.sprite.rect(3 * s, 11.3 * s, s * 0.4, s * 0.4)
-    this.sprite.rect(6.3 * s, 11.3 * s, s * 0.4, s * 0.4)
-    this.sprite.rect(7 * s, 11.3 * s, s * 0.4, s * 0.4)
-
-    // Center pivot
     this.sprite.pivot.set(5 * s, 6 * s)
     this.container.addChild(this.sprite)
   }
 
-  drawMarkings(s, c) {
-    // Type-specific markings
-    if (this.type === 'orange' || this.type === 'ginger') {
-      // Stripes
-      this.sprite.fill(c.dark)
-      this.sprite.rect(5 * s, 1.5 * s, s * 0.5, s * 0.5)
-      this.sprite.rect(3 * s, 7 * s, s * 0.5, s)
-      this.sprite.rect(6 * s, 8 * s, s * 0.5, s)
-    } else if (this.type === 'tabby') {
-      // M mark on forehead
-      this.sprite.fill(c.dark)
-      this.sprite.rect(4 * s, 1.5 * s, s * 0.3, s * 0.5)
-      this.sprite.rect(5 * s, 1.8 * s, s * 0.3, s * 0.3)
-      this.sprite.rect(6 * s, 1.5 * s, s * 0.3, s * 0.5)
-    } else if (this.type === 'calico') {
-      // Patches
-      this.sprite.fill(c.dark)
-      this.sprite.rect(2 * s, 2 * s, s, s)
-      this.sprite.rect(7 * s, 7 * s, s, s)
-      this.sprite.fill(c.spots)
-      this.sprite.rect(8 * s, 3 * s, s, s)
-      this.sprite.rect(3 * s, 8 * s, s, s)
-    } else if (this.type === 'tuxedo') {
-      // White chest
-      this.sprite.fill(c.light)
+  drawPattern(s, bodyColor, patternColor) {
+    const type = this.genetics.patternType
+    const intensity = this.genetics.patternIntensity
+
+    if (type === 'solid') return
+
+    this.sprite.fill(patternColor)
+
+    if (type === 'tabby') {
+      // M on forehead + stripes
+      this.sprite.rect(4 * s, 1.5 * s, s * 0.4, s * 0.5)
+      this.sprite.rect(5 * s, 1.8 * s, s * 0.4, s * 0.3)
+      this.sprite.rect(6 * s, 1.5 * s, s * 0.4, s * 0.5)
+      // Body stripes
+      if (intensity > 0.3) {
+        this.sprite.rect(3 * s, 7 * s, s * 0.5, s)
+        this.sprite.rect(6 * s, 8 * s, s * 0.5, s)
+      }
+    } else if (type === 'tuxedo') {
+      // White chest and paws
+      this.sprite.fill(0xFFFFFF)
       this.sprite.rect(4 * s, 5 * s, s * 2, s)
       this.sprite.rect(4 * s, 7 * s, s * 2, s * 2)
-    } else if (this.type === 'siamese') {
-      // Dark points
-      this.sprite.fill(c.dark)
-      this.sprite.rect(2 * s, 0, s, s)
-      this.sprite.rect(7 * s, 0, s, s)
-      this.sprite.rect(4 * s, 4.5 * s, s * 2, s)
       this.sprite.rect(2 * s, 11 * s, s * 2, s)
       this.sprite.rect(6 * s, 11 * s, s * 2, s)
-    } else if (this.type === 'void') {
-      // Red glow eyes for void cat
-      this.sprite.fill(0xFF0000)
-      this.sprite.rect(3 * s, 2.5 * s, s * 0.5, s * 0.5)
-      this.sprite.rect(6 * s, 2.5 * s, s * 0.5, s * 0.5)
+    } else if (type === 'calico') {
+      // Random patches
+      this.sprite.rect(2 * s, 2 * s, s, s)
+      this.sprite.rect(7 * s, 7 * s, s, s)
+      this.sprite.fill(0x303030)
+      this.sprite.rect(8 * s, 3 * s, s, s)
+      this.sprite.rect(3 * s, 8 * s, s, s)
+    } else if (type === 'spots') {
+      this.sprite.rect(3 * s, 7 * s, s, s)
+      this.sprite.rect(7 * s, 8 * s, s, s)
+      this.sprite.rect(5 * s, 9 * s, s, s)
+    } else if (type === 'bicolor') {
+      // Half and half
+      this.sprite.rect(6 * s, 2 * s, s * 4, s * 4)
+      this.sprite.rect(6 * s, 7 * s, s * 4, s * 4)
+    }
+  }
+
+  applyAgeAppearance(s) {
+    // Kitten: smaller
+    // Senior: slightly duller, maybe gray whiskers
+    if (this.age.stage === 'senior') {
+      this.sprite.fill(0xCCCCCC)
+      this.sprite.rect(1 * s, 5 * s, s * 2, s * 0.2)
+      this.sprite.rect(7 * s, 5 * s, s * 2, s * 0.2)
     }
   }
 
   setupHitZones() {
-    const s = 4 * this.scale
+    const s = 4 * this.baseScale
     this.hitZones = {
       head: { x: -3 * s, y: -6 * s, w: 10 * s, h: 5 * s },
       chin: { x: -1 * s, y: -2 * s, w: 6 * s, h: 3 * s },
@@ -307,12 +357,16 @@ export class Cat {
   }
 
   reactToZone(zone) {
+    // Personality affects reactions
+    const p = this.genetics.personality
+    const friendlyMod = p.friendliness > 0.5 ? 1.5 : 0.8
+
     const reactions = {
-      head: { text: ['purr~', 'nya~', '^w^'], effect: 'heart', happiness: 5 },
-      chin: { text: ['prrrr~', 'bliss~', '>w<'], effect: 'heart', happiness: 8 },
-      back: { text: ['nice~', 'mmm~', '=w='], effect: 'star', happiness: 4 },
-      belly: { text: ['!!', 'eep!', '>.<'], effect: 'sweat', happiness: -2, risky: true },
-      tail: { text: ['!', 'mrow!', '>:c'], effect: 'spark', happiness: -3 }
+      head: { text: ['그르릉~', '냐~', '기분좋다냥'], effect: 'heart', happiness: 5 * friendlyMod },
+      chin: { text: ['그르르릉~', '행복해~', '최고다냥'], effect: 'heart', happiness: 8 * friendlyMod },
+      back: { text: ['좋다~', '응응~', '더해줘~'], effect: 'star', happiness: 4 * friendlyMod },
+      belly: { text: ['앗!', '깜짝이야!', '거긴..!'], effect: 'sweat', happiness: p.boldness > 0.5 ? 2 : -3, risky: p.boldness < 0.5 },
+      tail: { text: ['싫다냥!', '꼬리는 안돼!', '냐앙!'], effect: 'spark', happiness: -3 }
     }
 
     const reaction = reactions[zone] || reactions.back
@@ -325,16 +379,12 @@ export class Cat {
     this.game.createEffect(this.x, this.y, reaction.effect)
     this.happiness = Math.max(0, Math.min(100, this.happiness + reaction.happiness))
 
-    // Redraw to update blush
     if (this.happiness > 70 || this.happiness < 30) {
-      this.container.removeChild(this.sprite)
-      this.sprite.destroy()
-      this.sprite = null
       this.drawCat()
     }
 
-    if (zone === 'belly' && Math.random() < 0.3) {
-      this.game.createTextEffect(this.x, this.y - 20, 'Sensitive!', 0xFFAA00)
+    if (zone === 'belly' && reaction.risky && Math.random() < 0.3) {
+      this.game.createTextEffect(this.x, this.y - 20, '예민하다냥!', 0xFFAA00)
       setTimeout(() => {
         if (this.state === 'petted') {
           this.stopPetting()
@@ -353,6 +403,17 @@ export class Cat {
     this.targetX = this.x + (Math.random() > 0.5 ? 1 : -1) * (150 + Math.random() * 100)
     this.targetY = this.y + (Math.random() - 0.5) * 100
     this.clampTarget()
+  }
+
+  runAwayFrom(fromX, fromY) {
+    const dx = this.x - fromX
+    const dy = this.y - fromY
+    const dist = Math.hypot(dx, dy) || 1
+
+    this.targetX = this.x + (dx / dist) * 150
+    this.targetY = this.y + (dy / dist) * 100
+    this.clampTarget()
+    this.state = 'walking'
   }
 
   clampTarget() {
@@ -384,23 +445,85 @@ export class Cat {
     this.state = 'walking'
   }
 
+  // Social behaviors
+  startGrooming(otherCat) {
+    this.state = 'grooming'
+    this.targetCat = otherCat
+    this.stateTimer = 120
+    this.statusText.text = '쓰담쓰담'
+    this.statusText.visible = true
+  }
+
+  sleepNear(otherCat) {
+    this.targetX = otherCat.x + (Math.random() - 0.5) * 50
+    this.targetY = otherCat.y + (Math.random() - 0.5) * 30
+    this.clampTarget()
+    this.state = 'walking'
+    // Will sleep when arrives
+    this.targetCat = otherCat
+  }
+
+  startZoomies() {
+    this.state = 'zoomies'
+    this.zoomieTimer = 180 + Math.random() * 120
+  }
+
   scheduleNextAction() {
+    const p = this.genetics.personality
+    const timeMods = this.game.timeSystem ? this.game.timeSystem.getBehaviorModifiers() : { sleepChance: 0.15, activityMultiplier: 1 }
+
     this.stateTimer = Math.random() * 150 + 80
 
-    // More varied behaviors
+    // Personality + time affects behavior choice
     const roll = Math.random()
-    if (roll < 0.3) {
+    const activityThreshold = 0.3 * timeMods.activityMultiplier * p.energy
+
+    if (roll < timeMods.sleepChance * (1 - p.energy)) {
+      this.state = 'sleeping'
+      this.stateTimer = 200 + Math.random() * 200
+    } else if (roll < 0.3) {
       this.state = 'idle'
     } else if (roll < 0.5) {
       this.state = 'sitting'
     } else if (roll < 0.8) {
+      // Check social behavior
+      if (this.game.socialSystem && Math.random() < p.friendliness) {
+        this.trySocialBehavior()
+      } else {
+        this.state = 'walking'
+        this.targetX = Math.random() * 900 + 150
+        this.targetY = Math.random() * 300 + 400
+      }
+    } else {
+      this.tryGoToFurniture()
+    }
+  }
+
+  trySocialBehavior() {
+    if (!this.game.socialSystem) {
       this.state = 'walking'
       this.targetX = Math.random() * 900 + 150
       this.targetY = Math.random() * 300 + 400
-    } else {
-      // Try to go to furniture
-      this.tryGoToFurniture()
+      return
     }
+
+    const bestFriend = this.game.socialSystem.getBestFriend(this.id)
+    if (bestFriend) {
+      const friend = this.game.cats.find(c => c.id === bestFriend.id)
+      if (friend && Math.random() < 0.5) {
+        // Go to friend
+        this.targetX = friend.x + (Math.random() - 0.5) * 80
+        this.targetY = friend.y + (Math.random() - 0.5) * 50
+        this.clampTarget()
+        this.state = 'walking'
+        return
+      }
+    }
+
+    // Default walking
+    this.state = 'walking'
+    this.targetX = Math.random() * 900 + 150
+    this.targetY = Math.random() * 300 + 400
   }
 
   tryGoToFurniture() {
@@ -412,20 +535,67 @@ export class Cat {
         return
       }
     }
-    // Fallback to walking
     this.state = 'walking'
     this.targetX = Math.random() * 900 + 150
     this.targetY = Math.random() * 300 + 400
   }
 
-  update(delta) {
-    // Toy chasing
-    if (this.game.currentTool === 'toy' && this.game.toy.visible) {
+  update(delta, modifiers = {}) {
+    const p = this.genetics.personality
+    const timeModifiers = {
+      activityMultiplier: modifiers.activityMultiplier || 1,
+      sleepChance: modifiers.sleepChance || 0.15,
+      hungerMultiplier: modifiers.hungerMultiplier || 1,
+      socialMultiplier: modifiers.socialMultiplier || 1,
+    }
+
+    // Zoomies
+    if (this.state === 'zoomies') {
+      this.zoomieTimer -= delta
+      if (this.zoomieTimer <= 0) {
+        this.state = 'idle'
+        this.scheduleNextAction()
+      } else {
+        // Random fast movement
+        if (Math.random() < 0.05) {
+          this.targetX = Math.random() * 900 + 150
+          this.targetY = Math.random() * 300 + 400
+        }
+        // Fast!
+        if (this.targetX !== null) {
+          const dx = this.targetX - this.x
+          const dy = this.targetY - this.y
+          const dist = Math.hypot(dx, dy)
+          if (dist > 10) {
+            this.vx = (dx / dist) * 5
+            this.vy = (dy / dist) * 5
+            this.direction = dx > 0 ? 1 : -1
+          }
+        }
+      }
+    }
+
+    // Toy chasing (playful cats more interested)
+    if (this.game.currentTool === 'toy' && this.game.toy.visible && this.state !== 'zoomies') {
       const toyDist = Math.hypot(this.game.toy.x - this.x, this.game.toy.y - this.y)
-      if (toyDist < 250 && toyDist > 40) {
+      const chaseRange = 200 + p.playfulness * 100
+      if (toyDist < chaseRange && toyDist > 40) {
         this.state = 'playing'
         this.targetX = this.game.toy.x
         this.targetY = this.game.toy.y
+      }
+    }
+
+    // Social avoidance
+    if (this.game.socialSystem && this.state === 'walking') {
+      for (const other of this.game.cats) {
+        if (other.id !== this.id) {
+          const dist = Math.hypot(other.x - this.x, other.y - this.y)
+          if (dist < 100 && this.game.socialSystem.shouldAvoid(this.id, other.id)) {
+            this.runAwayFrom(other.x, other.y)
+            break
+          }
+        }
       }
     }
 
@@ -437,7 +607,8 @@ export class Cat {
         const dist = Math.hypot(dx, dy)
 
         if (dist > 8) {
-          const speed = this.state === 'playing' ? 3 : 1.5
+          const baseSpeed = this.state === 'playing' ? 3 : 1.5
+          const speed = baseSpeed * (0.8 + p.energy * 0.4)
           this.vx = (dx / dist) * speed
           this.vy = (dy / dist) * speed
           this.direction = dx > 0 ? 1 : -1
@@ -449,10 +620,27 @@ export class Cat {
             this.startEating()
           } else if (this.targetFurniture) {
             this.useFurniture()
+          } else if (this.targetCat && this.state !== 'playing') {
+            // Arrived near friend, maybe sleep
+            if (this.targetCat.state === 'sleeping') {
+              this.state = 'sleeping'
+              this.stateTimer = 150 + Math.random() * 150
+              this.statusText.text = '쿨쿨...'
+              this.statusText.visible = true
+            }
+            this.targetCat = null
           } else if (this.state !== 'playing') {
             this.scheduleNextAction()
           }
         }
+      }
+    } else if (this.state === 'grooming') {
+      this.stateTimer -= delta
+      if (this.stateTimer <= 0) {
+        this.statusText.visible = false
+        this.targetCat = null
+        this.state = 'idle'
+        this.scheduleNextAction()
       }
     } else if (this.state === 'idle' || this.state === 'sitting' || this.state === 'sleeping') {
       this.vx = 0
@@ -461,6 +649,7 @@ export class Cat {
 
       if (this.stateTimer <= 0) {
         this.leaveFurniture()
+        this.statusText.visible = false
         this.scheduleNextAction()
       }
     } else if (this.state === 'eating' || this.state === 'drinking') {
@@ -481,25 +670,34 @@ export class Cat {
     // Update container
     this.container.x = this.x
     this.container.y = this.y
-    this.container.scale.x = this.direction * this.scale
-    this.container.scale.y = this.scale
 
-    // Update status text position (it's in effectLayer, not container)
+    // Age affects size
+    let scale = this.baseScale
+    if (this.age.stage === 'kitten') scale *= 0.7
+    if (this.age.stage === 'senior') scale *= 0.95
+
+    this.container.scale.x = this.direction * scale
+    this.container.scale.y = scale
+
+    // Update text positions
     this.statusText.x = this.x
-    this.statusText.y = this.y - 45
+    this.statusText.y = this.y - 50
+    this.nameTag.x = this.x
+    this.nameTag.y = this.y + 35
 
     // Animations
     if (this.state === 'walking' || this.state === 'playing') {
       this.container.y += Math.sin(Date.now() / 80) * 2
     }
+    if (this.state === 'zoomies') {
+      this.container.y += Math.sin(Date.now() / 40) * 4
+    }
     if (this.state === 'idle' || this.state === 'sitting') {
-      this.container.scale.y = this.scale * (1 + Math.sin(Date.now() / 500) * 0.02)
+      this.container.scale.y = scale * (1 + Math.sin(Date.now() / 500) * 0.02)
     }
     if (this.state === 'sleeping') {
-      // Gentle breathing
-      this.container.scale.y = this.scale * (1 + Math.sin(Date.now() / 800) * 0.03)
-      // Show zzz
-      if (Math.random() < 0.01) {
+      this.container.scale.y = scale * (1 + Math.sin(Date.now() / 800) * 0.03)
+      if (Math.random() < 0.005) {
         this.game.createEffect(this.x + 15, this.y - 20, 'zzz')
       }
     }
@@ -513,18 +711,18 @@ export class Cat {
 
       if (f.type === 'cushion') {
         this.state = Math.random() < 0.5 ? 'sitting' : 'sleeping'
-        this.statusText.text = this.state === 'sleeping' ? 'zzz...' : 'comfy~'
+        this.statusText.text = this.state === 'sleeping' ? '쿨쿨~' : '포근해~'
         this.statusText.visible = true
         this.stateTimer = 200 + Math.random() * 200
       } else if (f.type === 'tower') {
         this.state = 'sitting'
-        this.y = f.y - 30 // On top of tower
-        this.statusText.text = 'high up!'
+        this.y = f.y - 30
+        this.statusText.text = '높다냥!'
         this.statusText.visible = true
         this.stateTimer = 150 + Math.random() * 150
       } else if (f.type === 'bowl') {
         this.state = f.bowlType === 'water' ? 'drinking' : 'eating'
-        this.statusText.text = f.bowlType === 'water' ? '*lap lap*' : 'nom~'
+        this.statusText.text = f.bowlType === 'water' ? '찹찹~' : '냠냠~'
         this.statusText.visible = true
         this.stateTimer = 80
       }
@@ -536,7 +734,6 @@ export class Cat {
     if (this.onFurniture) {
       this.onFurniture.occupant = null
       this.onFurniture = null
-      this.statusText.visible = false
     }
   }
 
@@ -546,7 +743,7 @@ export class Cat {
     this.stateTimer = 100
     this.vx = 0
     this.vy = 0
-    this.statusText.text = 'nom nom~'
+    this.statusText.text = '냠냠냠~'
     this.statusText.visible = true
     this.statusText.style.fill = 0xFFAA00
   }
@@ -565,5 +762,21 @@ export class Cat {
 
     this.game.createEffect(this.x, this.y, 'heart')
     this.game.createTextEffect(this.x, this.y - 20, 'Yummy!', 0xFF6B9D)
+  }
+
+  // Age system
+  ageOneDay() {
+    this.age.days++
+
+    // Stage transitions
+    if (this.age.days >= 5 && this.age.stage === 'kitten') {
+      this.age.stage = 'young'
+      this.game.createTextEffect(this.x, this.y - 30, 'Grew up!', 0x4CAF50)
+    } else if (this.age.days >= 30 && this.age.stage === 'young') {
+      this.age.stage = 'adult'
+    } else if (this.age.days >= 100 && this.age.stage === 'adult') {
+      this.age.stage = 'senior'
+      this.drawCat() // Redraw with gray whiskers
+    }
   }
 }

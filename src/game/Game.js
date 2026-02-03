@@ -2,6 +2,10 @@ import { Container, Graphics, Text } from 'pixi.js'
 import { Cat } from './Cat.js'
 import { Treat } from './Treat.js'
 import { Toy } from './Toy.js'
+import { TimeSystem } from './TimeSystem.js'
+import { SocialSystem } from './SocialSystem.js'
+import { EventSystem } from './EventSystem.js'
+import { CatGenerator } from './CatGenerator.js'
 
 export class Game {
   constructor(app) {
@@ -11,6 +15,12 @@ export class Game {
     this.furniture = []
     this.currentTool = 'pet'
     this.toy = null
+    this.weather = 'sunny'
+
+    // V3 Systems
+    this.timeSystem = new TimeSystem(this)
+    this.socialSystem = new SocialSystem(this)
+    this.eventSystem = new EventSystem(this)
   }
 
   async init() {
@@ -19,12 +29,14 @@ export class Game {
     this.furnitureLayer = new Container()
     this.catLayer = new Container()
     this.effectLayer = new Container()
+    this.lightingLayer = new Container()
     this.uiLayer = new Container()
 
     this.app.stage.addChild(this.backgroundLayer)
     this.app.stage.addChild(this.furnitureLayer)
     this.app.stage.addChild(this.catLayer)
     this.app.stage.addChild(this.effectLayer)
+    this.app.stage.addChild(this.lightingLayer)
     this.app.stage.addChild(this.uiLayer)
 
     // Draw cafe background
@@ -33,22 +45,108 @@ export class Game {
     // Setup furniture (interactable spots)
     this.setupFurniture()
 
+    // Setup lighting overlay for day/night
+    this.setupLighting()
+
+    // Setup time display
+    this.setupTimeUI()
+
     // Create toy (hidden initially)
     this.toy = new Toy(this)
     this.effectLayer.addChild(this.toy.container)
 
-    // Spawn initial cats with variety!
+    // Spawn initial cats (procedurally generated!)
     this.spawnCat()
     setTimeout(() => this.spawnCat(), 1500)
     setTimeout(() => this.spawnCat(), 3000)
-    setTimeout(() => this.spawnCat(), 4500)
-    setTimeout(() => this.spawnCat(), 6000)
 
     // Setup interactions
     this.setupInteractions()
 
     // Game loop
     this.app.ticker.add((ticker) => this.update(ticker.deltaTime))
+  }
+
+  setupLighting() {
+    this.lightingOverlay = new Graphics()
+    this.lightingOverlay.alpha = 0
+    this.lightingLayer.addChild(this.lightingOverlay)
+    this.updateLighting()
+  }
+
+  updateLighting() {
+    const periodInfo = this.timeSystem.getPeriodInfo()
+    const overlay = this.lightingOverlay
+
+    overlay.clear()
+    overlay.fill(periodInfo.color)
+    overlay.rect(0, 0, 1200, 800)
+
+    // Adjust alpha based on ambient level (inverted - darker = more overlay)
+    overlay.alpha = (1 - periodInfo.ambient) * 0.4
+  }
+
+  setupTimeUI() {
+    // Time display background
+    const timeBg = new Graphics()
+    timeBg.fill(0x5A4A35)
+    timeBg.roundRect(1050, 50, 130, 50, 8)
+    timeBg.fill(0x6B4423)
+    timeBg.roundRect(1055, 55, 120, 40, 5)
+    this.uiLayer.addChild(timeBg)
+
+    // Time text
+    this.timeText = new Text({
+      text: '08:00',
+      style: {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: 18,
+        fill: 0xFFF8DC,
+        fontWeight: 'bold'
+      }
+    })
+    this.timeText.x = 1075
+    this.timeText.y = 60
+    this.uiLayer.addChild(this.timeText)
+
+    // Day text
+    this.dayText = new Text({
+      text: '',
+      style: {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: 11,
+        fill: 0xD4C4A8
+      }
+    })
+    this.dayText.x = 1130
+    this.dayText.y = 63
+    this.uiLayer.addChild(this.dayText)
+
+    // Period indicator (Korean)
+    this.periodText = new Text({
+      text: '',
+      style: {
+        fontFamily: 'Arial, sans-serif',
+        fontSize: 11,
+        fill: 0xFFE4B5
+      }
+    })
+    this.periodText.x = 1075
+    this.periodText.y = 80
+    this.uiLayer.addChild(this.periodText)
+  }
+
+  updateTimeUI() {
+    const periodKorean = {
+      dawn: '새벽',
+      morning: '아침',
+      afternoon: '오후',
+      evening: '저녁',
+      night: '밤'
+    }
+    this.timeText.text = this.timeSystem.getTimeString()
+    this.dayText.text = this.timeSystem.getDayString()
+    this.periodText.text = periodKorean[this.timeSystem.currentPeriod] || ''
   }
 
   setupFurniture() {
@@ -205,36 +303,38 @@ export class Game {
     this.backgroundLayer.addChild(signBg)
 
     const title = new Text({
-      text: 'Pixel Cat Cafe',
+      text: '고양이 쉼터',
       style: {
-        fontFamily: 'Courier New',
-        fontSize: 20,
+        fontFamily: 'Arial, sans-serif',
+        fontSize: 22,
         fill: 0xFFF8DC,
         fontWeight: 'bold'
       }
     })
-    title.x = 45
-    title.y = 92
+    title.x = 55
+    title.y = 90
     this.backgroundLayer.addChild(title)
 
     // Cat count display
     this.catCountText = new Text({
       text: '',
       style: {
-        fontFamily: 'Courier New',
-        fontSize: 14,
-        fill: 0x5A4A35
+        fontFamily: 'Arial, sans-serif',
+        fontSize: 12,
+        fill: 0x5A4A35,
+        fontWeight: 'bold'
       }
     })
-    this.catCountText.x = 1050
-    this.catCountText.y = 20
+    this.catCountText.x = 250
+    this.catCountText.y = 12
     this.uiLayer.addChild(this.catCountText)
   }
 
   updateCatCount() {
     const sleeping = this.cats.filter(c => c.state === 'sleeping').length
     const playing = this.cats.filter(c => c.state === 'playing').length
-    this.catCountText.text = `Cats: ${this.cats.length} | Sleeping: ${sleeping} | Playing: ${playing}`
+    const zoomies = this.cats.filter(c => c.state === 'zoomies').length
+    this.catCountText.text = `고양이 ${this.cats.length}마리 | 자는중 ${sleeping} | 노는중 ${playing}${zoomies > 0 ? ` | 폭주! ${zoomies}` : ''}`
   }
 
   setupInteractions() {
@@ -255,24 +355,23 @@ export class Game {
     })
   }
 
-  spawnCat() {
-    // 16 different cat types for variety!
-    const catTypes = [
-      'orange', 'tuxedo', 'calico', 'tabby', 'white',
-      'black', 'gray', 'siamese', 'russian', 'cream',
-      'ginger', 'void', 'cloud', 'peach', 'silver'
-    ]
-    // Avoid duplicates if possible
-    const existingTypes = this.cats.map(c => c.type)
-    let available = catTypes.filter(t => !existingTypes.includes(t))
-    if (available.length === 0) available = catTypes
-
-    const type = available[Math.floor(Math.random() * available.length)]
-    const cat = new Cat(this, type)
+  spawnCat(genetics = null) {
+    // V3: Procedurally generated cats!
+    const cat = new Cat(this, genetics)
     cat.x = Math.random() * 900 + 150
     cat.y = Math.random() * 300 + 400
     this.cats.push(cat)
     this.catLayer.addChild(cat.container)
+
+    // Initialize relationships with existing cats
+    for (const otherCat of this.cats) {
+      if (otherCat !== cat) {
+        this.socialSystem.initRelationship(cat, otherCat)
+      }
+    }
+
+    console.log(`Spawned: ${cat.genetics.name} (${cat.genetics.rarity} ${cat.genetics.patternType} ${cat.genetics.baseColorType})`)
+    return cat
   }
 
   placeTreat(x, y) {
@@ -446,10 +545,35 @@ export class Game {
   }
 
   update(delta) {
+    // Update V3 systems
+    this.timeSystem.update(delta)
+    this.socialSystem.update(delta)
+    this.eventSystem.update(delta)
+
+    // Get time-based behavior modifiers
+    const modifiers = this.timeSystem.getBehaviorModifiers()
+
+    // Update all cats with modifiers
     for (const cat of this.cats) {
-      cat.update(delta)
+      cat.update(delta, modifiers)
     }
+
+    // Update UI and effects
     this.toy.update(delta)
     this.updateCatCount()
+    this.updateTimeUI()
+    this.updateLighting()
+  }
+
+  // Get social info for UI (can be used for tooltips)
+  getCatInfo(cat) {
+    const social = this.socialSystem.getCatSocialInfo(cat.id)
+    return {
+      name: cat.genetics.name,
+      rarity: cat.genetics.rarity,
+      age: cat.age,
+      friends: social.friends,
+      rivals: social.rivals
+    }
   }
 }
