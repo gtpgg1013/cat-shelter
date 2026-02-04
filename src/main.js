@@ -167,8 +167,97 @@ function setupSaveStatusDisplay() {
   }
 }
 
+// Show cat profile modal
+function showCatProfile(cat) {
+  const modal = document.getElementById('cat-profile-modal')
+  const g = cat.genetics
+  const p = g.personality
+
+  // Avatar
+  document.getElementById('profile-avatar').textContent = '🐱'
+
+  // Name and rarity
+  document.getElementById('profile-name').textContent = g.name
+  const rarityBadge = document.getElementById('profile-rarity')
+  rarityBadge.textContent = g.rarity
+  rarityBadge.className = `rarity-badge ${g.rarity}`
+
+  // Stats
+  const colorNames = {
+    orange: '오렌지', cream: '크림', brown: '브라운',
+    gray: '그레이', black: '블랙', white: '화이트'
+  }
+  const patternNames = {
+    solid: '단색', tabby: '태비', calico: '삼색',
+    tuxedo: '턱시도', spots: '점박이', bicolor: '투톤'
+  }
+  const stageNames = {
+    kitten: '아기', young: '청년', adult: '성인', senior: '노년'
+  }
+
+  document.getElementById('profile-color').textContent = colorNames[g.baseColorType] || g.baseColorType
+  document.getElementById('profile-pattern').textContent = patternNames[g.patternType] || g.patternType
+  document.getElementById('profile-age').textContent = `${stageNames[cat.age.stage]} (${cat.age.days}일)`
+  document.getElementById('profile-happiness').style.width = `${cat.happiness}%`
+
+  // Personality traits
+  const traitsEl = document.getElementById('profile-traits')
+  const traitNames = {
+    curiosity: '호기심', energy: '에너지', friendliness: '친화성',
+    playfulness: '장난기', boldness: '대담함'
+  }
+  traitsEl.innerHTML = ''
+  for (const [key, value] of Object.entries(p)) {
+    const tag = document.createElement('span')
+    tag.className = `trait-tag ${value > 0.7 ? 'high' : value < 0.3 ? 'low' : ''}`
+    tag.textContent = `${traitNames[key]} ${Math.round(value * 100)}%`
+    traitsEl.appendChild(tag)
+  }
+
+  // Friends
+  const friendsEl = document.getElementById('profile-friends')
+  friendsEl.innerHTML = ''
+  if (game?.socialSystem) {
+    const social = game.socialSystem.getCatSocialInfo(cat.id)
+    if (social.friends.length > 0) {
+      social.friends.slice(0, 3).forEach((friend, i) => {
+        const friendCat = game.cats.find(c => c.id === friend.id)
+        if (friendCat) {
+          const tag = document.createElement('span')
+          tag.className = `friend-tag ${i === 0 ? 'best' : ''}`
+          tag.textContent = friendCat.genetics.name
+          friendsEl.appendChild(tag)
+        }
+      })
+    } else {
+      friendsEl.innerHTML = '<span class="no-friends">아직 친구가 없어요</span>'
+    }
+  }
+
+  modal.style.display = 'flex'
+}
+
+function setupProfileModal() {
+  const modal = document.getElementById('cat-profile-modal')
+  const closeBtn = document.getElementById('profile-close')
+
+  closeBtn.addEventListener('click', () => {
+    modal.style.display = 'none'
+  })
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.style.display = 'none'
+    }
+  })
+}
+
+// Expose showCatProfile to game
+window.showCatProfile = showCatProfile
+
 init().then(() => {
   setupSaveStatusDisplay()
+  setupProfileModal()
   // Start auto-save if no save data exists
   if (game?.saveSystem && !game.saveSystem.hasSaveData()) {
     game.saveSystem.startAutoSave()

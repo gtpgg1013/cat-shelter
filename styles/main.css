@@ -236,3 +236,172 @@ body {
 .modal-btn.primary:hover {
   background: #7a9a70;
 }
+
+/* Cat Profile Modal */
+.cat-profile {
+  min-width: 320px;
+  text-align: left;
+  position: relative;
+}
+
+.profile-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 30px;
+  height: 30px;
+  background: #4a3525;
+  border: 2px solid #6a5040;
+  border-radius: 50%;
+  color: #d4c4b0;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.profile-close:hover {
+  background: #6a4535;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.profile-avatar {
+  width: 60px;
+  height: 60px;
+  background: #4a3a30;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+
+.profile-title h2 {
+  margin-bottom: 5px;
+}
+
+.rarity-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.rarity-badge.common { background: #808080; color: #fff; }
+.rarity-badge.uncommon { background: #4CAF50; color: #fff; }
+.rarity-badge.rare { background: #2196F3; color: #fff; }
+.rarity-badge.legendary { background: linear-gradient(45deg, #FFD700, #FFA500); color: #333; }
+
+.profile-stats {
+  background: #2a1f1a;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #3a2a20;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  color: #9a8a7a;
+  font-size: 13px;
+}
+
+.stat-value {
+  color: #f4e4d0;
+  font-size: 13px;
+}
+
+.stat-bar {
+  width: 120px;
+  height: 10px;
+  background: #3a2a20;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.stat-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #4ecdc4);
+  border-radius: 5px;
+  transition: width 0.3s;
+}
+
+.profile-personality h3,
+.profile-social h3 {
+  color: #d4c4b0;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.trait-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trait-tag {
+  padding: 5px 12px;
+  background: #4a3a30;
+  border-radius: 15px;
+  font-size: 12px;
+  color: #d4c4b0;
+}
+
+.trait-tag.high {
+  background: #4a6a40;
+  color: #aaffaa;
+}
+
+.trait-tag.low {
+  background: #6a4040;
+  color: #ffaaaa;
+}
+
+.profile-social {
+  margin-top: 15px;
+}
+
+.friend-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.friend-tag {
+  padding: 5px 12px;
+  background: #4a3a30;
+  border-radius: 15px;
+  font-size: 12px;
+  color: #d4c4b0;
+}
+
+.friend-tag.best {
+  background: #ff6b9d;
+  color: #fff;
+}
+
+.no-friends {
+  color: #6a5a4a;
+  font-size: 12px;
+  font-style: italic;
+}

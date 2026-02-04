@@ -32,6 +32,46 @@
       </div>
     </div>
   </div>
+  <div id="cat-profile-modal" class="modal" style="display: none;">
+    <div class="modal-content cat-profile">
+      <button id="profile-close" class="profile-close">×</button>
+      <div class="profile-header">
+        <div id="profile-avatar" class="profile-avatar"></div>
+        <div class="profile-title">
+          <h2 id="profile-name"></h2>
+          <span id="profile-rarity" class="rarity-badge"></span>
+        </div>
+      </div>
+      <div class="profile-stats">
+        <div class="stat-row">
+          <span class="stat-label">털색</span>
+          <span id="profile-color" class="stat-value"></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">무늬</span>
+          <span id="profile-pattern" class="stat-value"></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">나이</span>
+          <span id="profile-age" class="stat-value"></span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">행복도</span>
+          <div class="stat-bar">
+            <div id="profile-happiness" class="stat-fill"></div>
+          </div>
+        </div>
+      </div>
+      <div class="profile-personality">
+        <h3>성격</h3>
+        <div id="profile-traits" class="trait-list"></div>
+      </div>
+      <div class="profile-social">
+        <h3>친구</h3>
+        <div id="profile-friends" class="friend-list"></div>
+      </div>
+    </div>
+  </div>
   <div id="toolbar">
     <button class="tool-btn active" data-tool="pet">
       <span class="tool-icon">🖐️</span>

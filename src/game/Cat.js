@@ -303,8 +303,21 @@ export class Cat {
   setupEvents() {
     let isDragging = false
     let lastPetTime = 0
+    let lastClickTime = 0
 
     this.container.on('pointerdown', (e) => {
+      const now = Date.now()
+
+      // Double click to show profile
+      if (now - lastClickTime < 300) {
+        if (window.showCatProfile) {
+          window.showCatProfile(this)
+        }
+        lastClickTime = 0
+        return
+      }
+      lastClickTime = now
+
       if (this.game.currentTool === 'pet') {
         isDragging = true
         const local = this.container.toLocal(e.global)
