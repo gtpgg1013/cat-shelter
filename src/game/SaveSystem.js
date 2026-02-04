@@ -38,9 +38,19 @@ export class SaveSystem {
     }
 
     try {
-      // Clear existing cats
+      // Clear existing cats (including their UI elements)
       for (const cat of [...this.game.cats]) {
-        this.game.stage.removeChild(cat.container)
+        // Remove cat container from catLayer
+        if (cat.container.parent) {
+          cat.container.parent.removeChild(cat.container)
+        }
+        // Remove statusText and nameTag from effectLayer
+        if (cat.statusText?.parent) {
+          cat.statusText.parent.removeChild(cat.statusText)
+        }
+        if (cat.nameTag?.parent) {
+          cat.nameTag.parent.removeChild(cat.nameTag)
+        }
       }
       this.game.cats = []
 
@@ -49,7 +59,7 @@ export class SaveSystem {
         const cat = this.game.createCatFromData(catData)
         if (cat) {
           this.game.cats.push(cat)
-          this.game.stage.addChild(cat.container)
+          this.game.catLayer.addChild(cat.container)
         }
       }
 
@@ -78,10 +88,12 @@ export class SaveSystem {
     this.setStatus('saving')
 
     const data = this.serialize()
+    console.log('Saving data:', data.cats.length, 'cats')
 
     // Always save to local storage
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      console.log('Saved to localStorage')
     } catch (e) {
       console.error('LocalStorage save failed:', e)
     }
@@ -90,11 +102,13 @@ export class SaveSystem {
     if (authManager.isSignedIn()) {
       const success = await authManager.saveData(data)
       if (success) {
+        console.log('Saved to cloud')
         this.setStatus('saved')
         this.isDirty = false
         this.lastSaveTime = Date.now()
         return true
       } else {
+        console.error('Cloud save failed')
         this.setStatus('error')
         return false
       }
@@ -113,6 +127,9 @@ export class SaveSystem {
     // Try cloud first if signed in
     if (authManager.isSignedIn()) {
       data = authManager.loadData()
+      if (data) {
+        console.log('Loaded from cloud:', data.cats?.length, 'cats')
+      }
     }
 
     // Fall back to local storage
@@ -121,6 +138,7 @@ export class SaveSystem {
         const stored = localStorage.getItem(STORAGE_KEY)
         if (stored) {
           data = JSON.parse(stored)
+          console.log('Loaded from localStorage:', data.cats?.length, 'cats')
         }
       } catch (e) {
         console.error('LocalStorage load failed:', e)
@@ -128,7 +146,9 @@ export class SaveSystem {
     }
 
     if (data) {
-      return await this.deserialize(data)
+      const result = await this.deserialize(data)
+      console.log('Deserialize result:', result, '- cats in game:', this.game.cats.length)
+      return result
     }
 
     return false
